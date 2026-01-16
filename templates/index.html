@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A股量化分析系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding-top: 70px;
+            padding-bottom: 20px;
+        }
+        .navbar {
+            background: rgba(255,255,255,0.95) !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .navbar-brand {
+            font-weight: bold;
+            color: #667eea !important;
+        }
+        .nav-link {
+            color: #333 !important;
+        }
+        .nav-link:hover {
+            color: #667eea !important;
+        }
+        .btn-outline-primary {
+            color: #667eea;
+            border-color: #667eea;
+        }
+        .btn-outline-primary:hover {
+            background: #667eea;
+            color: white;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-info .username {
+            color: #333;
+            font-weight: 500;
+        }
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .search-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        .result-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: none;
+        }
+        .score-badge {
+            font-size: 48px;
+            font-weight: bold;
+            padding: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            width: 120px;
+            height: 120px;
+            line-height: 80px;
+            text-align: center;
+        }
+        .grade-A { background: #10b981; color: white; }
+        .grade-B { background: #3b82f6; color: white; }
+        .grade-C { background: #f59e0b; color: white; }
+        .grade-D { background: #ef4444; color: white; }
+        .grade-E { background: #7f1d1d; color: white; }
+        .signal-icon {
+            font-size: 24px;
+            margin-right: 8px;
+        }
+        .strategy-table th {
+            background: #f8f9fa;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">A股量化分析系统</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <!-- 未登录状态 -->
+                <div id="authButtons" class="d-none">
+                    <a href="/login" class="btn btn-outline-primary me-2">登录</a>
+                    <a href="/register" class="btn btn-primary">注册</a>
+                </div>
+                <!-- 已登录状态 -->
+                <div id="userInfo" class="user-info d-none">
+                    <span class="username">欢迎, <span id="usernameDisplay">--</span></span>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="handleLogout()">退出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- 标题 -->
+        <div class="text-center mb-4">
+            <h1 class="text-white display-4">📈 A股量化分析系统</h1>
+            <p class="text-white">基于多策略回测的智能买卖点分析</p>
+        </div>
+
+        <!-- 未登录提示卡片 -->
+        <div class="search-card d-none" id="loginPrompt">
+            <div class="text-center py-4">
+                <div style="font-size: 60px; margin-bottom: 20px;">🔐</div>
+                <h4 class="mb-3">请先登录</h4>
+                <p class="text-muted mb-4">登录后即可使用股票量化分析功能</p>
+                <a href="/login" class="btn btn-primary btn-lg me-2">登录</a>
+                <a href="/register" class="btn btn-outline-primary btn-lg">注册</a>
+            </div>
+        </div>
+
+        <!-- 搜索卡片（登录后显示） -->
+        <div class="search-card d-none" id="searchCard">
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <h4 class="mb-4 text-center">输入股票代码或名称</h4>
+                    <div class="input-group input-group-lg mb-3">
+                        <input type="text" id="stockInput" class="form-control"
+                               placeholder="例如: 000001 或 平安银行"
+                               onkeypress="if(event.key==='Enter') analyzeStock()">
+                        <button class="btn btn-primary" onclick="analyzeStock()">
+                            🔍 查询分析
+                        </button>
+                    </div>
+                    <div class="text-muted text-center">
+                        <small>支持沪深A股代码查询（如：000001.SZ, 600000.SH）</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加载动画 -->
+        <div class="loading">
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="text-white mt-2">正在分析，请稍候...</p>
+        </div>
+
+        <!-- 结果卡片 -->
+        <div class="result-card" id="resultCard">
+            <!-- 基本信息 -->
+            <div class="text-center mb-4">
+                <h2 id="stockName">--</h2>
+                <p class="text-muted">
+                    代码: <span id="stockCode">--</span> |
+                    价格: <span id="stockPrice">--</span>元 |
+                    日期: <span id="stockDate">--</span>
+                </p>
+            </div>
+
+            <!-- 综合评分 -->
+            <div class="text-center mb-5">
+                <div class="score-badge grade-A" id="scoreBadge">
+                    <span id="scoreValue">--</span>分
+                </div>
+                <h4 class="mt-3" id="scoreGrade">-- 级</h4>
+                <p class="text-muted" id="scoreAdvice">--</p>
+            </div>
+
+            <!-- 当前信号 -->
+            <div class="mb-4">
+                <h5>📊 当前交易信号</h5>
+                <div class="row" id="signalsContainer">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 策略对比 -->
+            <div class="mb-4">
+                <h5>🎯 策略回测对比（近3年）</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover strategy-table">
+                        <thead>
+                            <tr>
+                                <th>策略名称</th>
+                                <th>交易次数</th>
+                                <th>年化收益</th>
+                                <th>胜率</th>
+                                <th>夏普比率</th>
+                                <th>最大回撤</th>
+                            </tr>
+                        </thead>
+                        <tbody id="strategyTableBody">
+                            <!-- 动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 评分明细 -->
+            <div>
+                <h5>📋 评分明细</h5>
+                <ul id="scoreDetails">
+                    <!-- 动态生成 -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 页面加载时检查登录状态
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+        });
+
+        // 检查登录状态
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const result = await response.json();
+
+                if (result.success && result.data.logged_in) {
+                    // 已登录：显示搜索框，隐藏登录提示
+                    document.getElementById('authButtons').classList.add('d-none');
+                    document.getElementById('userInfo').classList.remove('d-none');
+                    document.getElementById('usernameDisplay').textContent = result.data.username;
+                    document.getElementById('searchCard').classList.remove('d-none');
+                    document.getElementById('loginPrompt').classList.add('d-none');
+                } else {
+                    // 未登录：隐藏搜索框，显示登录提示
+                    document.getElementById('authButtons').classList.remove('d-none');
+                    document.getElementById('userInfo').classList.add('d-none');
+                    document.getElementById('searchCard').classList.add('d-none');
+                    document.getElementById('loginPrompt').classList.remove('d-none');
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+                document.getElementById('authButtons').classList.remove('d-none');
+                document.getElementById('loginPrompt').classList.remove('d-none');
+            }
+        }
+
+        // 退出登录
+        async function handleLogout() {
+            try {
+                const response = await fetch('/api/auth/logout', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    // 刷新页面
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('退出登录失败:', error);
+            }
+        }
+
+        // 分析股票
+        async function analyzeStock() {
+            const input = document.getElementById('stockInput').value.trim();
+            if (!input) {
+                alert('请输入股票代码');
+                return;
+            }
+
+            // 显示加载
+            document.querySelector('.loading').style.display = 'block';
+            document.getElementById('resultCard').style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/analyze/${input}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    displayResult(result.data);
+                } else {
+                    alert('分析失败: ' + result.message);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error.message);
+            } finally {
+                document.querySelector('.loading').style.display = 'none';
+            }
+        }
+
+        // 显示结果
+        function displayResult(data) {
+            // 基本信息
+            document.getElementById('stockName').textContent = data.name;
+            document.getElementById('stockCode').textContent = data.ts_code;
+            document.getElementById('stockPrice').textContent = data.current_price.toFixed(2);
+            document.getElementById('stockDate').textContent = data.current_date;
+
+            // 综合评分
+            const score = data.score;
+            document.getElementById('scoreValue').textContent = score.total;
+            document.getElementById('scoreGrade').textContent = score.grade + ' 级';
+            document.getElementById('scoreAdvice').textContent = score.advice;
+
+            const scoreBadge = document.getElementById('scoreBadge');
+            scoreBadge.className = 'score-badge grade-' + score.grade;
+
+            // 当前信号
+            const signalMap = {
+                2: '🔥 强烈买入',
+                1: '🔺 买入',
+                0: '⏸️ 观望',
+                '-1': '🔻 卖出',
+                '-2': '💀 强烈卖出'
+            };
+
+            const signals = data.current_signals;
+            const signalsHtml = `
+                <div class="col-md-6 mb-2">MA+MACD: ${signalMap[signals.signal]}</div>
+                <div class="col-md-6 mb-2">布林带: ${signalMap[signals.signal_boll]}</div>
+                <div class="col-md-6 mb-2">KDJ: ${signalMap[signals.signal_kdj]}</div>
+                <div class="col-md-6 mb-2">RSI: ${signalMap[signals.signal_rsi]}</div>
+                <div class="col-md-6 mb-2">成交量: ${signalMap[signals.signal_volume]}</div>
+                <div class="col-md-6 mb-2"><strong>综合策略: ${signalMap[signals.signal_combined]}</strong></div>
+            `;
+            document.getElementById('signalsContainer').innerHTML = signalsHtml;
+
+            // 策略对比
+            const strategies = data.strategies;
+            let tableHtml = '';
+            for (const [name, strat] of Object.entries(strategies)) {
+                if (strat.trade_count > 0) {
+                    tableHtml += `
+                        <tr>
+                            <td><strong>${name}</strong></td>
+                            <td>${strat.trade_count} 笔</td>
+                            <td class="${strat.annual_return > 0 ? 'text-success' : 'text-danger'}">
+                                ${strat.annual_return.toFixed(1)}%
+                            </td>
+                            <td>${strat.win_rate.toFixed(1)}%</td>
+                            <td>${strat.sharpe_ratio.toFixed(2)}</td>
+                            <td class="text-danger">${strat.max_drawdown.toFixed(2)}%</td>
+                        </tr>
+                    `;
+                }
+            }
+            document.getElementById('strategyTableBody').innerHTML = tableHtml;
+
+            // 评分明细
+            const detailsHtml = `
+                <li>趋势 (${score.trend}/30): ${score.trend_text}</li>
+                <li>RSI (${score.rsi}/20): ${score.rsi_text}</li>
+                <li>量能 (${score.volume}/10): ${score.volume_text}</li>
+                <li>策略 (${score.strategy_winrate + score.strategy_return + score.strategy_sharpe}/40): ${score.strategy_text}</li>
+            `;
+            document.getElementById('scoreDetails').innerHTML = detailsHtml;
+
+            // 显示结果卡片
+            document.getElementById('resultCard').style.display = 'block';
+            document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

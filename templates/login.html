@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - A股量化分析系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-header h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+        .form-control {
+            padding: 12px 15px;
+            border-radius: 8px;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .input-group-text {
+            background: #f8f9fa;
+            border-radius: 8px 0 0 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .captcha-img {
+            height: 40px;
+            cursor: pointer;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .captcha-refresh {
+            cursor: pointer;
+            color: #667eea;
+            font-size: 20px;
+            margin-left: 8px;
+        }
+        .captcha-refresh:hover {
+            color: #764ba2;
+        }
+        .link-text {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+        .link-text a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .link-text a:hover {
+            text-decoration: underline;
+        }
+        .alert {
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .password-toggle {
+            cursor: pointer;
+            color: #666;
+        }
+        .password-toggle:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-header">
+            <h1>A股量化分析系统</h1>
+            <p>用户登录</p>
+        </div>
+
+        <div id="alertBox" class="alert alert-danger d-none" role="alert"></div>
+
+        <form id="loginForm" onsubmit="return handleLogin(event)">
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
+                        </svg>
+                    </span>
+                    <input type="text" class="form-control" id="username" name="username"
+                           placeholder="用户名" required autocomplete="username">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                        </svg>
+                    </span>
+                    <input type="password" class="form-control" id="password" name="password"
+                           placeholder="密码" required autocomplete="current-password">
+                    <span class="input-group-text password-toggle" onclick="togglePassword('password')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" id="eyeIcon">
+                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                        </svg>
+                    </span>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control me-2" id="captchaCode" name="captcha_code"
+                           placeholder="验证码" required style="flex: 1;" maxlength="4" autocomplete="off">
+                    <img id="captchaImg" class="captcha-img" onclick="refreshCaptcha()" title="点击刷新">
+                    <span class="captcha-refresh" onclick="refreshCaptcha()" title="刷新验证码">&#x21bb;</span>
+                </div>
+                <input type="hidden" id="captchaId" name="captcha_id">
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100" id="submitBtn">
+                登 录
+            </button>
+        </form>
+
+        <div class="link-text">
+            没有账号？<a href="/register">立即注册</a>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载时获取验证码
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshCaptcha();
+        });
+
+        // 获取验证码
+        async function refreshCaptcha() {
+            try {
+                const response = await fetch('/api/auth/captcha');
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('captchaImg').src = result.data.image;
+                    document.getElementById('captchaId').value = result.data.captcha_id;
+                    document.getElementById('captchaCode').value = '';
+                }
+            } catch (error) {
+                console.error('获取验证码失败:', error);
+            }
+        }
+
+        // 切换密码显示
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.textContent = message;
+            alertBox.classList.remove('d-none');
+        }
+
+        // 隐藏错误信息
+        function hideError() {
+            document.getElementById('alertBox').classList.add('d-none');
+        }
+
+        // 处理登录
+        async function handleLogin(event) {
+            event.preventDefault();
+            hideError();
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '登录中...';
+
+            const formData = {
+                username: document.getElementById('username').value.trim(),
+                password: document.getElementById('password').value,
+                captcha_id: document.getElementById('captchaId').value,
+                captcha_code: document.getElementById('captchaCode').value.trim()
+            };
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 登录成功，跳转到首页
+                    window.location.href = '/';
+                } else {
+                    showError(result.message);
+                    refreshCaptcha();
+                }
+            } catch (error) {
+                showError('网络错误，请稍后重试');
+                refreshCaptcha();
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '登 录';
+            }
+
+            return false;
+        }
+    </script>
+</body>
+</html>
