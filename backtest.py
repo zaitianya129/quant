@@ -652,34 +652,82 @@ def calc_score(result: dict) -> dict:
         scores['strategy_text'] = "无回测数据"
         scores['best_strategy'] = None
 
-    # 总分
-    scores['total'] = (scores['trend'] + scores['rsi'] + scores['volume'] +
-                       scores.get('strategy_winrate', 0) +
-                       scores.get('strategy_return', 0) +
-                       scores.get('strategy_sharpe', 0))
+    # 5. 当前信号分 (20分) - 新增
+    current_signals = result.get('current_signals', {})
+    signal_combined = current_signals.get('signal_combined', 0)
 
-    # 评级
+    if signal_combined == 2:  # 强烈买入
+        scores['signal'] = 20
+        scores['signal_text'] = "强烈买入信号"
+    elif signal_combined == 1:  # 买入
+        scores['signal'] = 15
+        scores['signal_text'] = "买入信号"
+    elif signal_combined == 0:  # 观望
+        scores['signal'] = 5
+        scores['signal_text'] = "观望信号"
+    elif signal_combined == -1:  # 卖出
+        scores['signal'] = 0
+        scores['signal_text'] = "卖出信号"
+    else:  # 强烈卖出
+        scores['signal'] = 0
+        scores['signal_text'] = "强烈卖出信号"
+
+    # 总分 (满分120，归一化到100)
+    raw_total = (scores['trend'] + scores['rsi'] + scores['volume'] +
+                 scores.get('strategy_winrate', 0) +
+                 scores.get('strategy_return', 0) +
+                 scores.get('strategy_sharpe', 0) +
+                 scores.get('signal', 0))
+
+    # 归一化到100分制 (原满分100 + 信号分20 = 120)
+    scores['total'] = min(100, int(raw_total * 100 / 120))
+
+    # 评级 - 同时考虑分数和当前信号
     total = scores['total']
-    if total >= 80:
-        scores['grade'] = 'A'
-        scores['advice'] = '强烈推荐买入'
-        scores['action'] = 'buy'
-    elif total >= 65:
-        scores['grade'] = 'B'
-        scores['advice'] = '可以买入'
-        scores['action'] = 'buy'
-    elif total >= 50:
-        scores['grade'] = 'C'
-        scores['advice'] = '谨慎买入，控制仓位'
-        scores['action'] = 'hold'
-    elif total >= 35:
-        scores['grade'] = 'D'
-        scores['advice'] = '观望为主'
-        scores['action'] = 'wait'
-    else:
-        scores['grade'] = 'E'
-        scores['advice'] = '不建议买入'
-        scores['action'] = 'avoid'
+
+    # 当综合信号是卖出或观望时，降级处理
+    if signal_combined <= 0:  # 观望或卖出
+        if total >= 80:
+            scores['grade'] = 'B'
+            scores['advice'] = '历史表现好，但当前无买入信号，建议观望'
+            scores['action'] = 'wait'
+        elif total >= 65:
+            scores['grade'] = 'C'
+            scores['advice'] = '当前无买入信号，观望为主'
+            scores['action'] = 'wait'
+        elif total >= 50:
+            scores['grade'] = 'C'
+            scores['advice'] = '观望为主'
+            scores['action'] = 'wait'
+        elif total >= 35:
+            scores['grade'] = 'D'
+            scores['advice'] = '观望为主'
+            scores['action'] = 'wait'
+        else:
+            scores['grade'] = 'E'
+            scores['advice'] = '不建议买入'
+            scores['action'] = 'avoid'
+    else:  # 有买入信号
+        if total >= 80:
+            scores['grade'] = 'A'
+            scores['advice'] = '强烈推荐买入'
+            scores['action'] = 'buy'
+        elif total >= 65:
+            scores['grade'] = 'B'
+            scores['advice'] = '可以买入'
+            scores['action'] = 'buy'
+        elif total >= 50:
+            scores['grade'] = 'C'
+            scores['advice'] = '谨慎买入，控制仓位'
+            scores['action'] = 'hold'
+        elif total >= 35:
+            scores['grade'] = 'D'
+            scores['advice'] = '观望为主'
+            scores['action'] = 'wait'
+        else:
+            scores['grade'] = 'E'
+            scores['advice'] = '不建议买入'
+            scores['action'] = 'avoid'
 
     return scores
 
