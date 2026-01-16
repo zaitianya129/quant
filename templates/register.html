@@ -58,21 +58,6 @@
             opacity: 0.9;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-        .captcha-img {
-            height: 40px;
-            cursor: pointer;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
-        }
-        .captcha-refresh {
-            cursor: pointer;
-            color: #667eea;
-            font-size: 20px;
-            margin-left: 8px;
-        }
-        .captcha-refresh:hover {
-            color: #764ba2;
-        }
         .link-text {
             text-align: center;
             margin-top: 20px;
@@ -159,7 +144,7 @@
                 <div class="requirement" id="reqNumber">* 包含数字</div>
             </div>
 
-            <div class="mb-3">
+            <div class="mb-4">
                 <div class="input-group">
                     <span class="input-group-text">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -179,16 +164,6 @@
                 <div class="requirement" id="reqMatch">* 两次密码输入一致</div>
             </div>
 
-            <div class="mb-4">
-                <div class="d-flex align-items-center">
-                    <input type="text" class="form-control me-2" id="captchaCode" name="captcha_code"
-                           placeholder="验证码" required style="flex: 1;" maxlength="4" autocomplete="off">
-                    <img id="captchaImg" class="captcha-img" onclick="refreshCaptcha()" title="点击刷新">
-                    <span class="captcha-refresh" onclick="refreshCaptcha()" title="刷新验证码">&#x21bb;</span>
-                </div>
-                <input type="hidden" id="captchaId" name="captcha_id">
-            </div>
-
             <button type="submit" class="btn btn-primary w-100" id="submitBtn">
                 注 册
             </button>
@@ -200,27 +175,6 @@
     </div>
 
     <script>
-        // 页面加载时获取验证码
-        document.addEventListener('DOMContentLoaded', function() {
-            refreshCaptcha();
-        });
-
-        // 获取验证码
-        async function refreshCaptcha() {
-            try {
-                const response = await fetch('/api/auth/captcha');
-                const result = await response.json();
-
-                if (result.success) {
-                    document.getElementById('captchaImg').src = result.data.image;
-                    document.getElementById('captchaId').value = result.data.captcha_id;
-                    document.getElementById('captchaCode').value = '';
-                }
-            } catch (error) {
-                console.error('获取验证码失败:', error);
-            }
-        }
-
         // 切换密码显示
         function togglePassword(inputId) {
             const input = document.getElementById(inputId);
@@ -231,7 +185,6 @@
         function checkPassword() {
             const password = document.getElementById('password').value;
 
-            // 长度检查
             const reqLength = document.getElementById('reqLength');
             if (password.length >= 8) {
                 reqLength.classList.add('valid');
@@ -241,7 +194,6 @@
                 reqLength.classList.remove('valid');
             }
 
-            // 字母检查
             const reqLetter = document.getElementById('reqLetter');
             if (/[a-zA-Z]/.test(password)) {
                 reqLetter.classList.add('valid');
@@ -251,7 +203,6 @@
                 reqLetter.classList.remove('valid');
             }
 
-            // 数字检查
             const reqNumber = document.getElementById('reqNumber');
             if (/[0-9]/.test(password)) {
                 reqNumber.classList.add('valid');
@@ -300,7 +251,6 @@
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
 
-            // 前端验证
             if (password.length < 8) {
                 showMessage('密码长度至少8位');
                 return false;
@@ -323,9 +273,7 @@
             const formData = {
                 username: document.getElementById('username').value.trim(),
                 password: password,
-                confirm_password: confirmPassword,
-                captcha_id: document.getElementById('captchaId').value,
-                captcha_code: document.getElementById('captchaCode').value.trim()
+                confirm_password: confirmPassword
             };
 
             try {
@@ -346,11 +294,9 @@
                     }, 1500);
                 } else {
                     showMessage(result.message);
-                    refreshCaptcha();
                 }
             } catch (error) {
                 showMessage('网络错误，请稍后重试');
-                refreshCaptcha();
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = '注 册';

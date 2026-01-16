@@ -266,15 +266,6 @@ def register():
     username = data.get('username', '').strip()
     password = data.get('password', '')
     confirm_password = data.get('confirm_password', '')
-    captcha_id = data.get('captcha_id', '')
-    captcha_code = data.get('captcha_code', '')
-
-    # 验证验证码
-    if not verify_captcha(captcha_id, captcha_code):
-        return jsonify({
-            'success': False,
-            'message': '验证码错误或已过期'
-        }), 400
 
     # 验证用户名
     if not username or len(username) < 3 or len(username) > 20:
@@ -335,15 +326,6 @@ def login():
 
     username = data.get('username', '').strip()
     password = data.get('password', '')
-    captcha_id = data.get('captcha_id', '')
-    captcha_code = data.get('captcha_code', '')
-
-    # 验证验证码
-    if not verify_captcha(captcha_id, captcha_code):
-        return jsonify({
-            'success': False,
-            'message': '验证码错误或已过期'
-        }), 400
 
     # 获取用户
     user = get_user_by_username(username)
