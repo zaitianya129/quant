@@ -25,8 +25,31 @@ auth_bp = Blueprint('auth', __name__)
 CACHE_DIR = os.path.join(os.path.dirname(__file__), 'cache')
 USER_DB_PATH = os.path.join(CACHE_DIR, 'users.db')
 
-# 验证码存储（内存中，生产环境建议用Redis）
-captcha_store = {}
+# 验证码存储路径（使用SQLite，解决多进程问题）
+CAPTCHA_DB_PATH = os.path.join(CACHE_DIR, 'captcha.db')
+
+
+def get_captcha_db():
+    """获取验证码数据库连接"""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    conn = sqlite3.connect(CAPTCHA_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_captcha_db():
+    """初始化验证码数据库"""
+    conn = get_captcha_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS captchas (
+            captcha_id VARCHAR(32) PRIMARY KEY,
+            code VARCHAR(10) NOT NULL,
+            expires_at DATETIME NOT NULL
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
 # ==================== 数据库操作 ====================
 
@@ -116,12 +139,9 @@ def update_last_login(username):
 # ==================== 验证码 ====================
 
 def generate_captcha():
-    """生成图形验证码"""
-    # 生成随机验证码文本（4位字母数字）
-    chars = string.ascii_uppercase + string.digits
-    # 排除容易混淆的字符
-    chars = chars.replace('O', '').replace('0', '').replace('I', '').replace('1', '').replace('L', '')
-    code = ''.join(random.choices(chars, k=4))
+    """生成数字验证码"""
+    # 生成4位数字验证码
+    code = ''.join(random.choices(string.digits, k=4))
 
     # 生成验证码图片
     image = ImageCaptcha(width=120, height=40)
@@ -133,11 +153,16 @@ def generate_captcha():
     # 生成唯一ID
     captcha_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
-    # 存储验证码（5分钟有效）
-    captcha_store[captcha_id] = {
-        'code': code,
-        'expires': datetime.now() + timedelta(minutes=5)
-    }
+    # 存储到数据库（5分钟有效）
+    expires_at = datetime.now() + timedelta(minutes=5)
+    conn = get_captcha_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        'INSERT OR REPLACE INTO captchas (captcha_id, code, expires_at) VALUES (?, ?, ?)',
+        (captcha_id, code, expires_at.isoformat())
+    )
+    conn.commit()
+    conn.close()
 
     # 清理过期验证码
     cleanup_expired_captcha()
@@ -150,30 +175,41 @@ def verify_captcha(captcha_id, code):
     if not captcha_id or not code:
         return False
 
-    captcha_data = captcha_store.get(captcha_id)
+    conn = get_captcha_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM captchas WHERE captcha_id = ?', (captcha_id,))
+    captcha_data = cursor.fetchone()
+
     if not captcha_data:
+        conn.close()
         return False
 
     # 检查是否过期
-    if datetime.now() > captcha_data['expires']:
-        del captcha_store[captcha_id]
+    expires_at = datetime.fromisoformat(captcha_data['expires_at'])
+    if datetime.now() > expires_at:
+        cursor.execute('DELETE FROM captchas WHERE captcha_id = ?', (captcha_id,))
+        conn.commit()
+        conn.close()
         return False
 
-    # 验证（不区分大小写）
-    is_valid = captcha_data['code'].upper() == code.upper()
+    # 验证
+    is_valid = captcha_data['code'] == code
 
     # 用后即销毁
-    del captcha_store[captcha_id]
+    cursor.execute('DELETE FROM captchas WHERE captcha_id = ?', (captcha_id,))
+    conn.commit()
+    conn.close()
 
     return is_valid
 
 
 def cleanup_expired_captcha():
     """清理过期的验证码"""
-    now = datetime.now()
-    expired_keys = [k for k, v in captcha_store.items() if now > v['expires']]
-    for key in expired_keys:
-        del captcha_store[key]
+    conn = get_captcha_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM captchas WHERE expires_at < ?', (datetime.now().isoformat(),))
+    conn.commit()
+    conn.close()
 
 
 # ==================== 登录状态检查 ====================
@@ -413,3 +449,4 @@ def register_page():
 
 # 初始化数据库
 init_db()
+init_captcha_db()
